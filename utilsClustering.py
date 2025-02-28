@@ -7,6 +7,7 @@ from sklearn.cluster import SpectralClustering
 from scipy.spatial.distance import cdist
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.linalg import eigvalsh
+from scipy.spatial.distance import mahalanobis
 
 
 def custom_spectral_clustering_on_similarity_matrix(similarity_matrix, num_clusters = 2, viz=True):
@@ -198,3 +199,32 @@ def compute_cut_distance(adj_matrices):
             distance_matrix[j, i] = dist
 
     return distance_matrix
+
+def compute_mahalanobis_similarity(adj_matrices):
+    """
+    Compute pairwise similarity between adjacency matrices using the Mahalanobis distance.
+    The similarity is computed as the negative distance.
+
+    Parameters:
+        adj_matrices (list of np.ndarray): List of adjacency matrices.
+
+    Returns:
+        np.ndarray: Pairwise similarity matrix.
+    """
+    n = len(adj_matrices)
+    similarity_matrix = np.zeros((n, n))
+
+    # Flatten the matrices to use with mahalanobis
+    flattened_matrices = [adj.flatten() for adj in adj_matrices]
+    
+    # Calculate the inverse covariance matrix.
+    covariance_matrix = np.cov(flattened_matrices, rowvar=False) #rowvar=False is very important
+    inv_covariance = np.linalg.pinv(covariance_matrix)
+
+    for i in range(n):
+        for j in range(i, n):
+            dist = mahalanobis(flattened_matrices[i], flattened_matrices[j], inv_covariance)
+            similarity_matrix[i, j] = -dist  # Use negative distance as similarity
+            similarity_matrix[j, i] = -dist
+
+    return similarity_matrix

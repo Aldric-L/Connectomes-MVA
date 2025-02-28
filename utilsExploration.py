@@ -2,27 +2,48 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
-def plot_density(vector, title="Density Plot"):
-  """
-  Plots the density of a 1D vector.
+from scipy.stats import ttest_ind
 
-  Args:
-    vector: A list or numpy array representing the data.
-    title: The title of the plot.
-  """
-  if not isinstance(vector, (list, np.ndarray)):
-    raise TypeError("Input 'vector' must be a list or numpy array.")
 
-  if isinstance(vector, list):
-    vector = np.array(vector)
+def plot_density(*vectors, titles=None):
+    """
+    Plots multiple density plots in a row as subplots.
 
-  plt.figure(figsize=(10, 5))
-  sns.kdeplot(vector, fill=True)  # Use seaborn for a smooth density plot
-  plt.title(title)
-  plt.xlabel("Value")
-  plt.ylabel("Density")
-  plt.grid(True)
-  plt.show()
+    Args:
+        *vectors: Variable number of lists or NumPy arrays representing the data.
+        titles: Optional list of titles for each density plot. If None, default titles are used.
+    """
+
+    num_vectors = len(vectors)
+
+    if num_vectors == 0:
+        print("No vectors provided.")
+        return
+
+    if titles is None:
+        titles = [f"Density Plot {i+1}" for i in range(num_vectors)]
+    elif len(titles) != num_vectors:
+        print("Number of titles does not match number of vectors.")
+        titles = [f"Density Plot {i+1}" for i in range(num_vectors)]
+
+    plt.figure(figsize=(10 * num_vectors, 5))
+
+    for i, vector in enumerate(vectors):
+        if not isinstance(vector, (list, np.ndarray)):
+            raise TypeError(f"Input vector {i+1} must be a list or numpy array.")
+
+        if isinstance(vector, list):
+            vector = np.array(vector)
+
+        plt.subplot(1, num_vectors, i + 1)
+        sns.kdeplot(vector, fill=True)
+        plt.title(titles[i])
+        plt.xlabel("Value")
+        plt.ylabel("Density")
+        plt.grid(True)
+
+    plt.tight_layout()
+    plt.show()
   
 def plot_distribution_vector(vector_of_distributions, title="Distribution Vector"):
     """
@@ -117,32 +138,80 @@ def print_adjacency_matrices(data_patient):
     plt.tight_layout() #Prevents overlapping titles/labels.
     plt.show()
 
-def compute_pairwise_covariance(organs):
+def compute_pairwise_covariance(organs, mode="data"):
     """
-    Compute the pairwise covariance matrix between organs based on the log-transformed 
-    parameters of their log-normal distributions.
+    Compute the pairwise covariance matrix between organs
 
     Parameters:
         organs (dict): Dictionary where keys are organ names and values are (mean, variance) tuples.
+        mode (string): "data" or "parameters" : if data we compute the actual covariance, if parameters we compute the cov based on the log-transformed 
+    parameters of their log-normal distributions.
 
     Returns:
         np.ndarray: Pairwise covariance matrix between organs.
         list: Ordered list of organ names corresponding to matrix indices.
     """
-    organ_names = list(organs.keys())
-    num_organs = len(organ_names)
-    
-    # Convert organ dictionary to a NumPy array for easier computation
-    organ_vectors = np.array([organs[name] for name in organ_names])
-    
-    # Convert (mean, variance) to underlying normal parameters (log_mu, log_sigma_sq)
-    log_mu = np.log(organ_vectors[:, 0]**2 / np.sqrt(organ_vectors[:, 1] + organ_vectors[:, 0]**2))
-    log_sigma_sq = np.log(organ_vectors[:, 1] / organ_vectors[:, 0]**2 + 1)
-    
-    # Stack transformed parameters into a (num_organs, 2) matrix
-    log_params = np.vstack((log_mu, log_sigma_sq)).T  
+    if mode == "data":
+        if type(organs) != np.ndarray:
+            # Stack organ data into a matrix (rows = organs, columns = samples)
+            data_matrix = np.vstack([organs[name] for name in organ_names])
+        else:
+            data_matrix = organs
 
-    # Compute the covariance matrix between organs (num_organs x num_organs)
-    covariance_matrix = np.cov(log_params, rowvar=False)  
+        # Compute the covariance matrix (num_organs x num_organs)
+        covariance_matrix = np.cov(data_matrix)
+    else: 
+        organ_names = list(organs.keys())
+        # Convert organ dictionary to a NumPy array for easier computation
+        organ_vectors = np.array([organs[name] for name in organ_names])
+        
+        # Convert (mean, variance) to underlying normal parameters (log_mu, log_sigma_sq)
+        log_mu = np.log(organ_vectors[:, 0]**2 / np.sqrt(organ_vectors[:, 1] + organ_vectors[:, 0]**2))
+        log_sigma_sq = np.log(organ_vectors[:, 1] / organ_vectors[:, 0]**2 + 1)
+        
+        # Stack transformed parameters into a (num_organs, 2) matrix
+        log_params = np.vstack((log_mu, log_sigma_sq)).T  
+
+        # Compute the covariance matrix between organs (num_organs x num_organs)
+        covariance_matrix = np.cov(log_params, rowvar=False)  
 
     return covariance_matrix, organ_names
+
+def do_t_test(distribA, distribB):
+    t_stat, p_value = ttest_ind(distribA, distribB, equal_var=False)  # Welch's t-test
+
+    print(f"T-statistic: {t_stat}")
+    print(f"P-value: {p_value}")
+
+    # Interpret the results
+    alpha = 0.05  # Common significance level
+    if p_value < alpha:
+        print("There is a statistically significant difference between distribA and distribB (p < 0.05).")
+    else:
+        print("No statistically significant difference found (p >= 0.05).")
+    return t_stat, p_value
+
+def upper_triangle_to_vector(matrix):
+    """
+    Converts the upper triangle of a matrix (excluding the diagonal) to a vector.
+
+    Args:
+        matrix: A NumPy array representing the matrix.
+
+    Returns:
+        A NumPy array containing the upper triangle elements as a vector.
+    """
+
+    if not isinstance(matrix, np.ndarray):
+        raise TypeError("Input 'matrix' must be a NumPy array.")
+
+    rows, cols = matrix.shape
+    if rows != cols:
+        raise ValueError("Input 'matrix' must be a square matrix.")
+
+    upper_triangle_elements = []
+    for i in range(rows):
+        for j in range(i + 1, cols):
+            upper_triangle_elements.append(matrix[i, j])
+
+    return np.array(upper_triangle_elements)

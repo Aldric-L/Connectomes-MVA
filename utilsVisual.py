@@ -4,23 +4,49 @@ import networkx as nx
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 
-def plot_correlogram(correlation_matrix, title="Correlogram"):
-    """ 
-    Function that plots a correlogram from a pandas correlation matrix
+def plot_correlogram(*correlation_matrices, titles=None, cmap='viridis'):
     """
-    plt.figure(figsize=(12, 12))
-    sns.heatmap(
-        correlation_matrix,
-        annot=False,
-        cmap='viridis',  # You can change this to another colormap like 'viridis' or 'RdBu_r'
-        fmt='.2f',
-        linewidths=0,  # Increase linewidth for better separation between cells
-        cbar_kws={"shrink": 0.8},  # Shrink colorbar for better aesthetics
-        annot_kws={"size": 12},  # Set font size of annotations
-        square=True,  # Make the heatmap square-shaped
-        linecolor='white'  # Add white lines between cells
-    )
-    plt.title(title)
+    Plots multiple correlograms (NumPy arrays) in a row as subplots.
+
+    Args:
+        *correlation_matrices: Variable number of NumPy arrays (correlation matrices).
+        titles: Optional list of titles for each correlogram. If None, default titles are used.
+        cmap: Optional colormap for the heatmaps.
+    """
+
+    num_matrices = len(correlation_matrices)
+
+    if num_matrices == 0:
+        print("No correlation matrices provided.")
+        return
+
+    if titles is None:
+        titles = [f"Correlogram {i+1}" for i in range(num_matrices)]
+    elif len(titles) != num_matrices:
+        print("Number of titles does not match number of matrices.")
+        titles = [f"Correlogram {i+1}" for i in range(num_matrices)]
+
+    if num_matrices == 1:
+        plt.figure(figsize=(6,6))
+    else:
+        plt.figure(figsize=(12 * num_matrices, 10))
+
+    for i, corr_matrix in enumerate(correlation_matrices):
+        plt.subplot(1, num_matrices, i + 1)
+        sns.heatmap(
+            corr_matrix,
+            annot=False,
+            cmap=cmap,
+            fmt='.2f',
+            linewidths=0,
+            cbar_kws={"shrink": 0.8},
+            annot_kws={"size": 12},
+            square=True,
+            linecolor='white'
+        )
+        plt.title(titles[i])
+
+    plt.tight_layout()
     plt.show()
 
 def plot_connectome(G):
