@@ -4,6 +4,9 @@ import seaborn as sns
 
 from scipy.stats import ttest_ind
 from scipy.interpolate import interp1d
+from scipy.stats import gaussian_kde
+
+import random
 
 def resample_vectors(vectors):
     """
@@ -357,3 +360,89 @@ def compute_mahalanobis_similarity_optimized(adj_matrices):
         similarity_matrix[j, i] = -dist
 
     return similarity_matrix
+
+def remove_last_n_elements_and_slice(dictionary, n):
+    """
+    Removes the last n elements from a dictionary (maintaining order) and returns both the new dictionary and the removed slice.
+
+    Args:
+        dictionary: The input dictionary.
+        n: The number of elements to remove from the end.
+
+    Returns:
+        A tuple containing:
+            - A new dictionary with the last n elements removed.
+            - A dictionary containing the removed slice.
+    """
+
+    def shuffle_dictionary(dic):
+        """
+        Shuffles a dictionary and returns a new shuffled dictionary.
+
+        Args:
+            dictionary: The input dictionary.
+
+        Returns:
+            A new dictionary with the same key-value pairs but in a shuffled order.
+        """
+        if not isinstance(dic, dict):
+            raise TypeError("Input must be a dictionary.")
+
+        items = list(dic.items())  # Get key-value pairs as a list of tuples
+        random.shuffle(items)  # Shuffle the list of tuples
+        return dict(items)  # Create a new dictionary from the shuffled list
+
+    if not isinstance(dictionary, dict):
+        raise TypeError("Input must be a dictionary.")
+
+    if not isinstance(n, int) or n < 0:
+        raise ValueError("n must be a non-negative integer.")
+
+    if not dictionary:  # Handle empty dictionary
+        return {}, {}
+
+    if n >= len(dictionary):
+        return {}, dictionary.copy()
+    
+    dictionary = shuffle_dictionary(dictionary)
+    items = list(dictionary.items())
+    new_items = items[:-n]
+    removed_items = items[-n:]
+
+    return dict(new_items), dict(removed_items)
+
+def compute_column_sum_probabilities(test_matrix, set_of_matrices, epsilon=0.01):
+    """
+    For each matrix in set_of_matrices (each n x n), compute the sum of each column.
+    Learn the distribution of these sums using kernel density estimation.
+    Then, for each column in the test_matrix, compute the sum and approximate the 
+    probability that a sample from the learned distribution falls within [x-epsilon, x+epsilon].
+    
+    Parameters:
+      test_matrix (np.ndarray): An n x n matrix.
+      set_of_matrices (list of np.ndarray): A list of n x n matrices.
+      epsilon (float): Half the width of the interval around the observed column sum.
+    
+    Returns:
+      probabilities (np.ndarray): An array of probabilities (one per column of test_matrix).
+    """
+    # Gather all column sums from the dataset
+    dataset_column_sums = []
+    for mat in set_of_matrices:
+        # Compute column sums for each matrix (resulting in an array of shape (n,))
+        dataset_column_sums.extend(np.sum(mat, axis=0))
+    dataset_column_sums = np.array(dataset_column_sums)
+    
+    # Learn the distribution using kernel density estimation (non-parametric)
+    kde = gaussian_kde(dataset_column_sums)
+    
+    # Compute column sums for the test matrix
+    test_column_sums = np.sum(test_matrix, axis=0)
+    
+    # For each test column sum, compute the probability mass in [x - epsilon, x + epsilon]
+    probabilities = np.array([
+        max(0, kde.integrate_box_1d(x - epsilon, x + epsilon))
+        for x in test_column_sums
+    ])
+    
+    return probabilities
