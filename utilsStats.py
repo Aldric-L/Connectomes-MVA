@@ -63,15 +63,19 @@ def build_correlation_matrix(patients_data: dict, patients_keys, names, graph_th
 
 def build_graph_from_correlation_df(correlation_matrix, names, graph_threshold=0):
     """ 
-    Function that builds a correlation graph from a pandas correlation matrix
+    Function that builds a correlation graph from a correlation matrix
     """
     G = nx.Graph()
     G.add_nodes_from(names)
 
     for i in range(len(names)):
         for j in range(i + 1, len(names)):  # Only upper triangle (undirected graph)
-            if abs(correlation_matrix.loc[names[i], names[j]]) >= graph_threshold:  # Threshold to determine if an edge exists
-                G.add_edge(names[i], names[j], weight=correlation_matrix.loc[names[i], names[j]])
+            if type(correlation_matrix) == np.ndarray:
+                if abs(correlation_matrix[i, j]) >= graph_threshold:  # Threshold to determine if an edge exists
+                    G.add_edge(names[i], names[j], weight=correlation_matrix[i, j])
+            else:
+                if abs(correlation_matrix.loc[names[i], names[j]]) >= graph_threshold:  # Threshold to determine if an edge exists
+                    G.add_edge(names[i], names[j], weight=correlation_matrix.loc[names[i], names[j]])
     return G
 
 def fisher_transform(r):
