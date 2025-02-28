@@ -3,6 +3,79 @@ import numpy as np
 import seaborn as sns
 
 from scipy.stats import ttest_ind
+from scipy.interpolate import interp1d
+
+def resample_vectors(vectors):
+    """
+    Resamples longer vectors to match the length of the shortest vector,
+    preserving the approximate distribution.
+
+    Args:
+        vectors: A list of NumPy arrays (vectors) of potentially different lengths.
+
+    Returns:
+        A list of resampled NumPy arrays, all with the length of the shortest vector.
+    """
+
+    if not isinstance(vectors, (list, np.ndarray)) or len(vectors) == 0: 
+        return []
+
+    lengths = [len(v) for v in vectors]
+    min_length = min(lengths)
+
+    resampled_vectors = []
+    for vector in vectors:
+        if len(vector) == min_length:
+            resampled_vectors.append(vector)
+        else:
+            # Interpolate the vector
+            x_original = np.linspace(0, 1, len(vector))
+            x_resampled = np.linspace(0, 1, min_length)
+            f = interp1d(x_original, vector, kind='linear', fill_value="extrapolate") #use linear interpolation
+            resampled_vectors.append(f(x_resampled))
+
+    return resampled_vectors
+
+def compute_pairwise_covariance(organs, mode="data"):
+    """
+    Compute the pairwise covariance matrix between organs
+
+    Parameters:
+        organs (dict): Dictionary where keys are organ names and values are (mean, variance) tuples.
+        mode (string): "data" or "parameters" : if data we compute the actual covariance, if parameters we compute the cov based on the log-transformed 
+    parameters of their log-normal distributions.
+
+    Returns:
+        np.ndarray: Pairwise covariance matrix between organs.
+        list: Ordered list of organ names corresponding to matrix indices.
+    """
+    if mode == "data":
+        if type(organs) != np.ndarray:
+            organ_names = list(organs.keys())
+            # Stack organ data into a matrix (rows = organs, columns = samples)
+            data_matrix = np.vstack([organs[name] for name in organ_names])
+        else:
+            organ_names = []
+            data_matrix = resample_vectors(organs)
+            
+        # Compute the covariance matrix (num_organs x num_organs)
+        covariance_matrix = np.cov(data_matrix)
+    else: 
+        organ_names = list(organs.keys())
+        # Convert organ dictionary to a NumPy array for easier computation
+        organ_vectors = np.array([organs[name] for name in organ_names])
+        
+        # Convert (mean, variance) to underlying normal parameters (log_mu, log_sigma_sq)
+        log_mu = np.log(organ_vectors[:, 0]**2 / np.sqrt(organ_vectors[:, 1] + organ_vectors[:, 0]**2))
+        log_sigma_sq = np.log(organ_vectors[:, 1] / organ_vectors[:, 0]**2 + 1)
+        
+        # Stack transformed parameters into a (num_organs, 2) matrix
+        log_params = np.vstack((log_mu, log_sigma_sq)).T  
+
+        # Compute the covariance matrix between organs (num_organs x num_organs)
+        covariance_matrix = np.cov(log_params, rowvar=False)  
+
+    return covariance_matrix, organ_names
 
 
 def plot_density(*vectors, titles=None):
@@ -138,44 +211,6 @@ def print_adjacency_matrices(data_patient):
     plt.tight_layout() #Prevents overlapping titles/labels.
     plt.show()
 
-def compute_pairwise_covariance(organs, mode="data"):
-    """
-    Compute the pairwise covariance matrix between organs
-
-    Parameters:
-        organs (dict): Dictionary where keys are organ names and values are (mean, variance) tuples.
-        mode (string): "data" or "parameters" : if data we compute the actual covariance, if parameters we compute the cov based on the log-transformed 
-    parameters of their log-normal distributions.
-
-    Returns:
-        np.ndarray: Pairwise covariance matrix between organs.
-        list: Ordered list of organ names corresponding to matrix indices.
-    """
-    if mode == "data":
-        if type(organs) != np.ndarray:
-            # Stack organ data into a matrix (rows = organs, columns = samples)
-            data_matrix = np.vstack([organs[name] for name in organ_names])
-        else:
-            data_matrix = organs
-
-        # Compute the covariance matrix (num_organs x num_organs)
-        covariance_matrix = np.cov(data_matrix)
-    else: 
-        organ_names = list(organs.keys())
-        # Convert organ dictionary to a NumPy array for easier computation
-        organ_vectors = np.array([organs[name] for name in organ_names])
-        
-        # Convert (mean, variance) to underlying normal parameters (log_mu, log_sigma_sq)
-        log_mu = np.log(organ_vectors[:, 0]**2 / np.sqrt(organ_vectors[:, 1] + organ_vectors[:, 0]**2))
-        log_sigma_sq = np.log(organ_vectors[:, 1] / organ_vectors[:, 0]**2 + 1)
-        
-        # Stack transformed parameters into a (num_organs, 2) matrix
-        log_params = np.vstack((log_mu, log_sigma_sq)).T  
-
-        # Compute the covariance matrix between organs (num_organs x num_organs)
-        covariance_matrix = np.cov(log_params, rowvar=False)  
-
-    return covariance_matrix, organ_names
 
 def do_t_test(distribA, distribB):
     t_stat, p_value = ttest_ind(distribA, distribB, equal_var=False)  # Welch's t-test
@@ -215,3 +250,110 @@ def upper_triangle_to_vector(matrix):
             upper_triangle_elements.append(matrix[i, j])
 
     return np.array(upper_triangle_elements)
+
+def pairwise_covariance_matrices(matrix_vector):
+    """
+    Computes the pairwise covariance between a vector of same-size matrices.
+
+    Args:
+        matrix_vector: A list or NumPy array of NumPy matrices, all with the same shape.
+
+    Returns:
+        A NumPy array representing the pairwise covariance matrix.
+        The shape of the returned matrix will be (n, n), where n is the number of matrices.
+    """
+
+    if not isinstance(matrix_vector, (list, np.ndarray)):
+        raise TypeError("Input 'matrix_vector' must be a list or NumPy array.")
+
+    if not matrix_vector:
+        return np.array([])  # Return empty array if input is empty
+
+    num_matrices = len(matrix_vector)
+    matrix_shape = matrix_vector[0].shape
+
+    # Check if all elements are matrices and have the same shape
+    for matrix in matrix_vector:
+        if not isinstance(matrix, np.ndarray) or matrix.shape != matrix_shape:
+            raise ValueError("All elements in 'matrix_vector' must be NumPy matrices with the same shape.")
+
+    # Flatten each matrix into a 1D vector
+    flattened_matrices = [matrix.flatten() for matrix in matrix_vector]
+
+    # Compute the covariance matrix of the flattened vectors
+    covariance_matrix = np.cov(flattened_matrices)
+
+    return covariance_matrix
+
+def compute_mahalanobis_similarity_optimized(adj_matrices):
+    """
+    Compute pairwise similarity between adjacency matrices using Mahalanobis distance,
+    considering only the upper triangle (excluding the diagonal).
+
+    Parameters:
+        adj_matrices (list of np.ndarray): List of adjacency matrices.
+
+    Returns:
+        np.ndarray: Pairwise similarity matrix.
+    """
+    n = len(adj_matrices)
+    similarity_matrix = np.zeros((n, n))
+
+    if n == 0:
+        return similarity_matrix
+
+    # Extract upper triangles and flatten
+    flattened_matrices = []
+    for adj in adj_matrices:
+        rows, cols = adj.shape
+        upper_indices = np.triu_indices(rows, k=1)
+        flattened_matrices.append(adj[upper_indices])
+    flattened_matrices = np.array(flattened_matrices)
+
+    # Calculate inverse covariance matrix (once)
+    covariance_matrix = np.cov(flattened_matrices, rowvar=False)
+    inv_covariance = np.linalg.pinv(covariance_matrix)
+
+    # Calculate all pairwise Mahalanobis distances
+    for i in range(n):
+        for j in range(i, n):
+            dist = mahalanobis(flattened_matrices[i], flattened_matrices[j], inv_covariance)
+            similarity_matrix[i, j] = -dist
+            similarity_matrix[j, i] = -dist
+
+    return similarity_matrix
+
+
+from joblib import Parallel, delayed
+
+def compute_mahalanobis_similarity_optimized(adj_matrices):
+    n = len(adj_matrices)
+    similarity_matrix = np.zeros((n, n))
+
+    if n == 0:
+        return similarity_matrix
+
+    print("Flattening")
+    flattened_matrices = []
+    for adj in adj_matrices:
+        rows, cols = adj.shape
+        upper_indices = np.triu_indices(rows, k=1)
+        flattened_matrices.append(adj[upper_indices])
+    flattened_matrices = np.array(flattened_matrices)
+
+    covariance_matrix = np.cov(flattened_matrices, rowvar=False)
+    inv_covariance = np.linalg.pinv(covariance_matrix)
+
+    def calculate_distance(i, j):
+        print("Distance ", i, " ", j)
+        dist = mahalanobis(flattened_matrices[i], flattened_matrices[j], inv_covariance)
+        return i, j, dist
+
+    results = Parallel(n_jobs=-1)(delayed(calculate_distance)(i, j)
+                                   for i in range(n) for j in range(i, n))
+
+    for i, j, dist in results:
+        similarity_matrix[i, j] = -dist
+        similarity_matrix[j, i] = -dist
+
+    return similarity_matrix
