@@ -63,6 +63,28 @@ def compute_cosine_similarity(adj_matrices):
     similarity_matrix = cosine_similarity(flattened_matrices)
     return similarity_matrix
 
+def compute_euclidean_distance(adj_matrices):
+    """
+    Compute pairwise distances between adjacency matrices based on spectral distance.
+    The spectral distance is the L2 norm between the sorted eigenvalues of the graph Laplacians.
+
+    Parameters:
+        adj_matrices (list of np.ndarray): List of adjacency matrices.
+
+    Returns:
+        np.ndarray: Pairwise distance matrix.
+    """
+    n = len(adj_matrices)
+
+    distance_matrix = np.zeros((n, n))
+    for i in range(n):
+        for j in range(i, n):
+            dist = np.linalg.norm(adj_matrices[i] - adj_matrices[j])
+            distance_matrix[i, j] = dist
+            distance_matrix[j, i] = dist
+
+    return distance_matrix
+
 def compute_spectral_distance(adj_matrices):
     """
     Compute pairwise distances between adjacency matrices based on spectral distance.

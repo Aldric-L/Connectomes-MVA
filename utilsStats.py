@@ -79,115 +79,121 @@ def build_graph_from_correlation_df(correlation_matrix, names, graph_threshold=0
     return G
 
 def fisher_transform(r):
-    """Fisher z-transformation."""
+    """
+    Apply Fisher's r-to-z transformation.
+    Clamps r to avoid division errors.
+    """
+    r = np.clip(r, -0.9999, 0.9999)
     return 0.5 * np.log((1 + r) / (1 - r))
 
-def z_test_for_correlation_diff(r_N, r_N_plus_1, N):
-    """
-    Compute the z-test for the difference between two correlation coefficients
-    from matrices with N and N+1 samples.
-    
-    Args:
-    r_N (float): Pearson correlation coefficient from the N-sample matrix.
-    r_N_plus_1 (float): Pearson correlation coefficient from the N+1-sample matrix.
-    N (int): Sample size for the N-sample matrix.
-    
-    Returns:
-    z (float): z-value for the difference.
-    p_value (float): p-value corresponding to the z-value.
-    """
-    # Fisher z-transformation for both correlation coefficients
-    z_N = fisher_transform(r_N)
-    z_N_plus_1 = fisher_transform(r_N_plus_1)
-    
-    # Compute the standard error of the difference
-    SE_diff = np.sqrt(1 / (N - 3) + 1 / (N + 1 - 3))
-    
-    # Compute the z-value for the difference
-    z = (z_N - z_N_plus_1) / SE_diff
-    
-    # Compute the two-tailed p-value
-    p_value = 2 * (1 - stats.norm.cdf(abs(z)))
-    
-    return z, p_value
 
-def build_significance_matrix_for_diff(pearson_corr_matrix_N, pearson_corr_matrix_N_plus_1, N, Fisher=True):
-    """
-    Compute a matrix of p-values for the difference in Pearson correlation coefficients 
-    between two correlation matrices, one for N samples and the other for N+1 samples.
-    
-    The function compares the correlation coefficients from two matrices where the first 
-    matrix corresponds to a sample size of N, and the second corresponds to N+1 samples. 
-    It computes the significance of the difference between each pair of correlation coefficients 
-    using the following procedure:
-        - Fisher Transformation: Both correlation coefficients (from N and N+1) are transformed using Fisher’s z-transformation. (The Fisher z-transformation converts correlation coefficients into a variable that follows approximately a normal distribution, even when the correlation is extreme)
-        - Difference of z-scores and std. error: it computes the difference between the z-scores for each pair of correlations.
-        - Compute the z-value: it uses the z-scores and the standard error to compute the z-value for each pair.
-        - Compute p-values: Finally, it computes the p-value corresponding to the z-value.
 
-    Args:
-        N: the number of patients in the original matrix
-        pearson_corr_matrix_N (pd.DataFrame): A square matrix of Pearson correlation coefficients 
-                                               for N samples. The matrix should be symmetric with 
-                                               columns and rows corresponding to variables.
-        pearson_corr_matrix_N_plus_1 (pd.DataFrame): A square matrix of Pearson correlation coefficients 
-                                                     for N+1 samples. It should have the same shape as 
-                                                     pearson_corr_matrix_N, with columns and rows corresponding 
-                                                     to the same variables.
-        Fisher: boolean (whether to compute z scores or t scores)
+# def z_test_for_correlation_diff(r_N, r_N_plus_1, N):
+#     """
+#     Compute the z-test for the difference between two correlation coefficients
+#     from matrices with N and N+1 samples.
     
-    Returns:
-        pd.DataFrame: A matrix of p-values corresponding to the significance of the differences 
-                      between the correlation coefficients of pearson_corr_matrix_N and pearson_corr_matrix_N_plus_1.
-                      The matrix has the same shape as the input correlation matrices, with rows and columns representing 
-                      the variables being compared.
-    """
-    # Initialize a DataFrame for z-values and p-values
-    z_matrix = pd.DataFrame(index=pearson_corr_matrix_N.columns, columns=pearson_corr_matrix_N.columns)
-    p_values_matrix = pd.DataFrame(index=pearson_corr_matrix_N.columns, columns=pearson_corr_matrix_N.columns)
+#     Args:
+#     r_N (float): Pearson correlation coefficient from the N-sample matrix.
+#     r_N_plus_1 (float): Pearson correlation coefficient from the N+1-sample matrix.
+#     N (int): Sample size for the N-sample matrix.
+    
+#     Returns:
+#     z (float): z-value for the difference.
+#     p_value (float): p-value corresponding to the z-value.
+#     """
+#     # Fisher z-transformation for both correlation coefficients
+#     z_N = fisher_transform(r_N)
+#     z_N_plus_1 = fisher_transform(r_N_plus_1)
+    
+#     # Compute the standard error of the difference
+#     SE_diff = np.sqrt(1 / (N - 3) + 1 / (N + 1 - 3))
+    
+#     # Compute the z-value for the difference
+#     z = (z_N - z_N_plus_1) / SE_diff
+    
+#     # Compute the two-tailed p-value
+#     p_value = 2 * (1 - stats.norm.cdf(abs(z)))
+    
+#     return z, p_value
 
-    # Compute the p-value for the difference for each pair of coefficients
-    for col1 in pearson_corr_matrix_N.columns:
-        for col2 in pearson_corr_matrix_N.columns:
-            # Get the correlation coefficients from both matrices (for N and N+1 samples)
-            r_N = pearson_corr_matrix_N.loc[col1, col2]  # Correlation from the N-sample matrix
-            r_N_plus_1 = pearson_corr_matrix_N_plus_1.loc[col1, col2]  # Correlation from the N+1-sample matrix
+# def build_significance_matrix_for_diff(pearson_corr_matrix_N, pearson_corr_matrix_N_plus_1, N, Fisher=True):
+#     """
+#     Compute a matrix of p-values for the difference in Pearson correlation coefficients 
+#     between two correlation matrices, one for N samples and the other for N+1 samples.
+    
+#     The function compares the correlation coefficients from two matrices where the first 
+#     matrix corresponds to a sample size of N, and the second corresponds to N+1 samples. 
+#     It computes the significance of the difference between each pair of correlation coefficients 
+#     using the following procedure:
+#         - Fisher Transformation: Both correlation coefficients (from N and N+1) are transformed using Fisher’s z-transformation. (The Fisher z-transformation converts correlation coefficients into a variable that follows approximately a normal distribution, even when the correlation is extreme)
+#         - Difference of z-scores and std. error: it computes the difference between the z-scores for each pair of correlations.
+#         - Compute the z-value: it uses the z-scores and the standard error to compute the z-value for each pair.
+#         - Compute p-values: Finally, it computes the p-value corresponding to the z-value.
+
+#     Args:
+#         N: the number of patients in the original matrix
+#         pearson_corr_matrix_N (pd.DataFrame): A square matrix of Pearson correlation coefficients 
+#                                                for N samples. The matrix should be symmetric with 
+#                                                columns and rows corresponding to variables.
+#         pearson_corr_matrix_N_plus_1 (pd.DataFrame): A square matrix of Pearson correlation coefficients 
+#                                                      for N+1 samples. It should have the same shape as 
+#                                                      pearson_corr_matrix_N, with columns and rows corresponding 
+#                                                      to the same variables.
+#         Fisher: boolean (whether to compute z scores or t scores)
+    
+#     Returns:
+#         pd.DataFrame: A matrix of p-values corresponding to the significance of the differences 
+#                       between the correlation coefficients of pearson_corr_matrix_N and pearson_corr_matrix_N_plus_1.
+#                       The matrix has the same shape as the input correlation matrices, with rows and columns representing 
+#                       the variables being compared.
+#     """
+#     # Initialize a DataFrame for z-values and p-values
+#     z_matrix = pd.DataFrame(index=pearson_corr_matrix_N.columns, columns=pearson_corr_matrix_N.columns)
+#     p_values_matrix = pd.DataFrame(index=pearson_corr_matrix_N.columns, columns=pearson_corr_matrix_N.columns)
+
+#     # Compute the p-value for the difference for each pair of coefficients
+#     for col1 in pearson_corr_matrix_N.columns:
+#         for col2 in pearson_corr_matrix_N.columns:
+#             # Get the correlation coefficients from both matrices (for N and N+1 samples)
+#             r_N = pearson_corr_matrix_N.loc[col1, col2]  # Correlation from the N-sample matrix
+#             r_N_plus_1 = pearson_corr_matrix_N_plus_1.loc[col1, col2]  # Correlation from the N+1-sample matrix
             
-            # Compute the z-value and p-value for the difference
-            z, p_value = z_test_for_correlation_diff(r_N, r_N_plus_1, N) if Fisher is True else t_test_for_correlation_diff(r_N, r_N_plus_1, N)
+#             # Compute the z-value and p-value for the difference
+#             z, p_value = z_test_for_correlation_diff(r_N, r_N_plus_1, N) if Fisher is True else t_test_for_correlation_diff(r_N, r_N_plus_1, N)
             
-            p_values_matrix.loc[col1, col2] = p_value
-            z_matrix.loc[col1, col2] = z
+#             p_values_matrix.loc[col1, col2] = p_value
+#             z_matrix.loc[col1, col2] = z
 
-    p_values_matrix = p_values_matrix.apply(pd.to_numeric)
-    z_matrix = z_matrix.apply(pd.to_numeric)
-    return z_matrix, p_values_matrix
+#     p_values_matrix = p_values_matrix.apply(pd.to_numeric)
+#     z_matrix = z_matrix.apply(pd.to_numeric)
+#     return z_matrix, p_values_matrix
 
-def t_test_for_correlation_diff(r1, r2, N):
-    """
-    Compute the t-test for the difference between two correlation coefficients
-    without using Fisher transformation.
+# def t_test_for_correlation_diff(r1, r2, N):
+#     """
+#     Compute the t-test for the difference between two correlation coefficients
+#     without using Fisher transformation.
     
-    Args:
-        r1 (float): Pearson correlation coefficient from the N-sample matrix.
-        r2 (float): Pearson correlation coefficient from the N+1-sample matrix.
-        N (int): Sample size for the N-sample matrix.
+#     Args:
+#         r1 (float): Pearson correlation coefficient from the N-sample matrix.
+#         r2 (float): Pearson correlation coefficient from the N+1-sample matrix.
+#         N (int): Sample size for the N-sample matrix.
 
-    Returns:
-        t (float): t-statistic for the difference.
-        p_value (float): p-value corresponding to the t-statistic.
-    """
-    # Compute the standard error of the difference
-    se_diff = np.sqrt((1 - r1**2) / (N - 1) + (1 - r2**2) / (N+1 - 1))
+#     Returns:
+#         t (float): t-statistic for the difference.
+#         p_value (float): p-value corresponding to the t-statistic.
+#     """
+#     # Compute the standard error of the difference
+#     se_diff = np.sqrt((1 - r1**2) / (N - 1) + (1 - r2**2) / (N+1 - 1))
     
-    # Compute the t-statistic for the difference
-    t = (r1 - r2) / se_diff
+#     # Compute the t-statistic for the difference
+#     t = (r1 - r2) / se_diff
     
-    # Compute the two-tailed p-value from the t-distribution
-    degrees_of_freedom = min(N - 1, N + 1 - 1)  # degrees of freedom for the t-distribution
-    p_value = 2 * (1 - stats.t.cdf(abs(t), df=degrees_of_freedom))
+#     # Compute the two-tailed p-value from the t-distribution
+#     degrees_of_freedom = min(N - 1, N + 1 - 1)  # degrees of freedom for the t-distribution
+#     p_value = 2 * (1 - stats.t.cdf(abs(t), df=degrees_of_freedom))
     
-    return t, p_value
+#     return t, p_value
 
 def dfs(adj_matrix, node, visited):
     visited[node] = True
