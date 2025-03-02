@@ -87,6 +87,108 @@ def fisher_transform(r):
     return 0.5 * np.log((1 + r) / (1 - r))
 
 
+def z_test_for_correlation_diff(r_N, r_N_plus_1, N):
+    """
+    Compute a z-test for the difference between two Pearson correlation coefficients
+    using Fisher's z-transformation. The two correlations are computed from nearly identical 
+    datasets (N and N+1 samples). Note that this test assumes independence between the two 
+    estimates, which is not strictly true here, so the p-values are only approximate.
+    
+    Args:
+        r_N (float): Pearson correlation from the N-sample matrix.
+        r_N_plus_1 (float): Pearson correlation from the N+1-sample matrix.
+        N (int): Number of samples in the original (N-sample) matrix.
+    
+    Returns:
+        z (float): z-value for the difference.
+        p_value (float): Two-tailed p-value corresponding to the z-value.
+    """
+    # Transform correlations to z-scale
+    z_N = fisher_transform(r_N)
+    z_N_plus_1 = fisher_transform(r_N_plus_1)
+    
+    # Standard error estimates for independent samples (for N and N+1 subjects)
+    se_N = 1 / np.sqrt(N - 3)
+    se_Np1 = 1 / np.sqrt((N + 1) - 3)
+    
+    # Under the (incorrect but common) assumption of independence, the variance of the difference is the sum:
+    se_diff = np.sqrt(se_N**2 + se_Np1**2)
+    
+    # Compute the z-statistic for the difference
+    z = (z_N - z_N_plus_1) / se_diff
+    
+    # Two-tailed p-value
+    p_value = 2 * (1 - stats.norm.cdf(np.abs(z)))
+    return z, p_value
+
+def t_test_for_correlation_diff(r_N, r_N_plus_1, N):
+    """
+    An alternative (approximate) test using t-scores.
+    Here we simply convert the z-score into a t-statistic using an effective degree 
+    of freedom (here approximated as N-3). This is provided as an option.
+    
+    Args:
+        r_N (float): Pearson correlation from the N-sample matrix.
+        r_N_plus_1 (float): Pearson correlation from the N+1-sample matrix.
+        N (int): Number of samples in the original matrix.
+    
+    Returns:
+        t (float): t-statistic for the difference.
+        p_value (float): two-tailed p-value corresponding to the t-statistic.
+    """
+    z, _ = z_test_for_correlation_diff(r_N, r_N_plus_1, N)
+    df = N - 3  # approximate degrees of freedom
+    t_stat = z * np.sqrt(df)
+    p_value = 2 * (1 - stats.t.cdf(np.abs(t_stat), df=df))
+    return t_stat, p_value
+
+def build_significance_matrix_for_diff(pearson_corr_matrix_N, pearson_corr_matrix_N_plus_1, N, Fisher=True):
+    """
+    Compute a matrix of p-values (and corresponding test statistics) for the differences 
+    in Pearson correlation coefficients between two correlation matrices: one computed 
+    from N samples and the other from N+1 samples.
+    
+    The procedure is:
+        - For each pair of variables, retrieve the correlation from both matrices.
+        - Transform the correlations using Fisher's z-transformation.
+        - Compute the difference and the corresponding standard error (assuming independence).
+        - Compute the z-value (or t-value) and then the two-tailed p-value.
+    
+    Args:
+        pearson_corr_matrix_N (pd.DataFrame): Square matrix of Pearson correlations for N samples.
+        pearson_corr_matrix_N_plus_1 (pd.DataFrame): Square matrix of Pearson correlations for N+1 samples.
+        N (int): Number of samples in the original matrix.
+        Fisher (bool): If True, use the Fisher z-test (default). Otherwise, use the t-test.
+    
+    Returns:
+        tuple(pd.DataFrame, pd.DataFrame): Two DataFrames of the same shape as the input matrices.
+            - The first contains the test statistics (z-values if Fisher=True, t-values otherwise).
+            - The second contains the corresponding two-tailed p-values.
+    """
+    # Initialize DataFrames to store test statistics and p-values
+    z_matrix = pd.DataFrame(index=pearson_corr_matrix_N.index, columns=pearson_corr_matrix_N.columns)
+    p_values_matrix = pd.DataFrame(index=pearson_corr_matrix_N.index, columns=pearson_corr_matrix_N.columns)
+    
+    # Loop over every pair of variables (edges)
+    for var1 in pearson_corr_matrix_N.index:
+        for var2 in pearson_corr_matrix_N.columns:
+            r_N = pearson_corr_matrix_N.loc[var1, var2]
+            r_N_plus_1 = pearson_corr_matrix_N_plus_1.loc[var1, var2]
+            
+            if Fisher:
+                stat_val, p_val = z_test_for_correlation_diff(r_N, r_N_plus_1, N)
+            else:
+                stat_val, p_val = t_test_for_correlation_diff(r_N, r_N_plus_1, N)
+            
+            z_matrix.loc[var1, var2] = stat_val
+            p_values_matrix.loc[var1, var2] = p_val
+
+    # Ensure that all entries are numeric
+    z_matrix = z_matrix.astype(float)
+    p_values_matrix = p_values_matrix.astype(float)
+    
+    return z_matrix, p_values_matrix
+
 
 # def z_test_for_correlation_diff(r_N, r_N_plus_1, N):
 #     """

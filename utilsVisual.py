@@ -3,10 +3,56 @@ import seaborn as sns
 import networkx as nx
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
+import numpy as np
+
+# def plot_correlogram(*correlation_matrices, titles=None, cmap='viridis'):
+#     """
+#     Plots multiple correlograms (NumPy arrays) in a row as subplots.
+
+#     Args:
+#         *correlation_matrices: Variable number of NumPy arrays (correlation matrices).
+#         titles: Optional list of titles for each correlogram. If None, default titles are used.
+#         cmap: Optional colormap for the heatmaps.
+#     """
+
+#     num_matrices = len(correlation_matrices)
+
+#     if num_matrices == 0:
+#         print("No correlation matrices provided.")
+#         return
+
+#     if titles is None:
+#         titles = [f"Correlogram {i+1}" for i in range(num_matrices)]
+#     elif len(titles) != num_matrices:
+#         print("Number of titles does not match number of matrices.")
+#         titles = [f"Correlogram {i+1}" for i in range(num_matrices)]
+
+#     if num_matrices == 1:
+#         plt.figure(figsize=(6,6))
+#     else:
+#         plt.figure(figsize=(12 * num_matrices, 10))
+
+#     for i, corr_matrix in enumerate(correlation_matrices):
+#         plt.subplot(1, num_matrices, i + 1)
+#         sns.heatmap(
+#             corr_matrix,
+#             annot=False,
+#             cmap=cmap,
+#             fmt='.2f',
+#             linewidths=0,
+#             cbar_kws={"shrink": 0.8},
+#             annot_kws={"size": 12},
+#             square=True,
+#             linecolor='white'
+#         )
+#         plt.title(titles[i])
+
+#     plt.tight_layout()
+#     plt.show()
 
 def plot_correlogram(*correlation_matrices, titles=None, cmap='viridis'):
     """
-    Plots multiple correlograms (NumPy arrays) in a row as subplots.
+    Plots multiple correlograms (NumPy arrays) in a row as subplots with a shared color scale.
 
     Args:
         *correlation_matrices: Variable number of NumPy arrays (correlation matrices).
@@ -26,6 +72,10 @@ def plot_correlogram(*correlation_matrices, titles=None, cmap='viridis'):
         print("Number of titles does not match number of matrices.")
         titles = [f"Correlogram {i+1}" for i in range(num_matrices)]
 
+    # Find the global min and max for the color scale
+    global_min = min(np.nanmin(corr_matrix) for corr_matrix in correlation_matrices)
+    global_max = max(np.nanmax(corr_matrix) for corr_matrix in correlation_matrices)
+
     if num_matrices == 1:
         plt.figure(figsize=(6,6))
     else:
@@ -42,7 +92,9 @@ def plot_correlogram(*correlation_matrices, titles=None, cmap='viridis'):
             cbar_kws={"shrink": 0.8},
             annot_kws={"size": 12},
             square=True,
-            linecolor='white'
+            linecolor='white',
+            vmin=global_min,  # Set global min
+            vmax=global_max   # Set global max
         )
         plt.title(titles[i])
 

@@ -5,6 +5,7 @@ import seaborn as sns
 from scipy.stats import ttest_ind
 from scipy.interpolate import interp1d
 from scipy.stats import gaussian_kde
+from scipy import stats
 
 import random
 
@@ -138,8 +139,6 @@ def plot_distribution_vector(vector_of_distributions, title="Distribution Vector
     plt.ylabel("Density")
     plt.grid(True)
     plt.show()
-
-
 
 def build_organ_dict(organ_SUV_values):
     """
@@ -446,3 +445,85 @@ def compute_column_sum_probabilities(test_matrix, set_of_matrices, epsilon=0.01)
     ])
     
     return probabilities
+
+def test_normality_of_matrices(matrices):
+    """
+    Returns a matrix of p-values from Shapiro-Wilk tests for each coefficient.
+
+    Args:
+        matrices: A list or NumPy array of squared NumPy matrices.
+
+    Returns:
+        A NumPy matrix of means, with the same shape as the input matrices.
+        A NumPy matrix of variances, with the same shape as the input matrices.
+        A NumPy matrix of p-values, with the same shape as the input matrices.
+        A number of p-values that are under 0.05
+    """
+
+    if not isinstance(matrices, (list, np.ndarray)):
+        raise TypeError("Input must be a list or NumPy array of matrices.")
+
+    if not matrices:
+        return np.array([])
+
+    matrix_shape = matrices[0].shape
+    if len(matrix_shape) != 2 or matrix_shape[0] != matrix_shape[1]:
+        raise ValueError("Matrices must be square.")
+
+    num_matrices = len(matrices)
+    p_values_matrix = np.zeros(matrix_shape)
+    n_pvalues = 0
+
+    for row in range(matrix_shape[0]):
+        for col in range(matrix_shape[1]):
+            coefficient_values = [matrix[row, col] for matrix in matrices]
+            _, p_value = stats.shapiro(coefficient_values)  # Get p-value only
+            p_values_matrix[row, col] = p_value
+            n_pvalues += (p_value <= 0.05)
+
+    return np.mean(matrices, axis=0), np.var(matrices, axis=0), p_values_matrix, n_pvalues
+
+def compute_ncs(correlation_matrix):
+    """
+    Compute the Nodal Connectivity Strength (NCS) for each node in a given correlation matrix.
+
+    NCS is defined as the sum of the absolute values of correlation coefficients
+    for each node (excluding self-correlations).
+
+    Args:
+        correlation_matrix (pd.DataFrame or np.array): A symmetric matrix of Pearson correlation coefficients.
+
+    Returns:
+        pd.Series or np.array: A series containing the NCS for each node, indexed by the node names.
+    """
+    # Ensure input is a DataFrame
+    if not isinstance(correlation_matrix, pd.DataFrame):
+        return np.sum(np.abs(correlation_matrix), axis=1) - np.diag(correlation_matrix)
+    else:
+        # Compute NCS by summing the absolute values of correlations (excluding self-correlations)
+        ncs_values = correlation_matrix.abs().sum(axis=1) - np.diag(correlation_matrix)
+
+        return pd.Series(ncs_values, index=correlation_matrix.index)
+    
+
+def set_diagonal_to_zero(matrix):
+    """
+    Sets the diagonal elements of a NumPy matrix to zero.
+
+    Args:
+        matrix: A NumPy array representing the matrix.
+
+    Returns:
+        A NumPy array with the diagonal elements set to zero.
+    """
+    if not isinstance(matrix, np.ndarray):
+        raise TypeError("Input must be a NumPy array.")
+
+    rows, cols = matrix.shape
+    if rows != cols:
+        raise ValueError("Matrix must be square.")
+
+    modified_matrix = matrix.copy() #Create a copy to avoid modifying the original.
+    np.fill_diagonal(modified_matrix, 0)
+
+    return modified_matrix
