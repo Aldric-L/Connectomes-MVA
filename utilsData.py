@@ -149,16 +149,17 @@ def create_meta_organs(patient_data, meta_organs=None, resample_max_length=None)
             "SAT_fat": {"subcutaneous_fat"},
             "liver": {"liver"},
             "spleen": {"spleen"},
-            "kidney": {"kidney_right", "kidney_left", "adrenal_gland_right", "adrenal_gland_left", "kidney_cyst_left", "kidney_cyst_right"},
+            "kidney": {"kidney_right", "kidney_left"},
             "heart_left": {"atrial_appendage_left", 'heart_atrium_left', 'heart_ventricle_left',},
             "heart_right": {'heart_atrium_right', 'heart_ventricle_right'},
-            "heart": {"heart", "heart_myocardium",'aorta'},
+            "heart": {"heart", "heart_myocardium"},
             "brain": {'brain'},
-            "other": {"gallbladder", "stomach", "pancreas","esophagus", "trachea", "thyroid_gland", "duodenum", "colon", "urinary_bladder", "prostate",
-                    "pulmonary_vein", "brachiocephalic_trunk", "subclavian_artery_right", "common_carotid_artery_right",
-                    "common_carotid_artery_left", "brachiocephalic_vein_left", "superior_vena_cava", "inferior_vena_cava", 
-                    "portal_vein_and_splenic_vein", 'iliac_artery_left', 'iliac_artery_right', 'iliac_vena_left',
-                    'iliac_vena_right', "spinal_cord", 'pulmonary_artery', "small_bowel",}
+            #"other": {"gallbladder", "stomach", "pancreas","esophagus", "trachea", "thyroid_gland", "duodenum", "colon", "urinary_bladder", "prostate",
+            #        "pulmonary_vein", "brachiocephalic_trunk", "subclavian_artery_right", "common_carotid_artery_right",
+            #        "common_carotid_artery_left", "brachiocephalic_vein_left", "superior_vena_cava", "inferior_vena_cava", 
+            #        "portal_vein_and_splenic_vein", 'iliac_artery_left', 'iliac_artery_right', 'iliac_vena_left',
+            #        'iliac_vena_right', "spinal_cord", 'pulmonary_artery', "small_bowel",
+            #         "adrenal_gland_right", "adrenal_gland_left", "kidney_cyst_left", "kidney_cyst_right", 'aorta'}
         }
     meta_data = {}
     
