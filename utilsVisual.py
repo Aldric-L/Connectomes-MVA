@@ -111,3 +111,62 @@ def plot_connectome(*graphs, titles=None, layout=nx.circular_layout):
 
     plt.tight_layout()
     plt.show()
+
+
+def plot_density(*vectors, titles=None):
+    """
+    Plots multiple density plots in a row as subplots.
+
+    Args:
+        *vectors: Variable number of lists or NumPy arrays representing the data.
+        titles: Optional list of titles for each density plot. If None, default titles are used.
+    """
+
+    num_vectors = len(vectors)
+
+    if num_vectors == 0:
+        print("No vectors provided.")
+        return
+
+    if titles is None:
+        titles = [f"Density Plot {i+1}" for i in range(num_vectors)]
+    elif len(titles) != num_vectors:
+        print("Number of titles does not match number of vectors.")
+        titles = [f"Density Plot {i+1}" for i in range(num_vectors)]
+
+    plt.figure(figsize=(10 * num_vectors, 5))
+
+    for i, vector in enumerate(vectors):
+        if not isinstance(vector, (list, np.ndarray)):
+            raise TypeError(f"Input vector {i+1} must be a list or numpy array.")
+
+        if isinstance(vector, list):
+            vector = np.array(vector)
+
+        plt.subplot(1, num_vectors, i + 1)
+        sns.kdeplot(vector, fill=True)
+        plt.title(titles[i])
+        plt.xlabel("Value")
+        plt.ylabel("Density")
+        plt.grid(True)
+
+    plt.tight_layout()
+    plt.show()
+  
+def plot_distribution_vector(vector_of_distributions, title="Distribution Vector"):
+    """
+    Plots a vector of distributions using overlapping density plots.
+
+    Args:
+      vector_of_distributions: A list of lists or numpy arrays, where each inner 
+                                list/array represents a distribution.
+      title: The title of the plot.
+    """
+    plt.figure(figsize=(10, 5))
+    for distribution in vector_of_distributions:
+        sns.kdeplot(distribution, fill=True)
+    plt.title(title)
+    plt.xlabel("Value")
+    plt.ylabel("Density")
+    plt.grid(True)
+    plt.show()

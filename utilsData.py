@@ -6,6 +6,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 import gc
 import itertools
+import ast
 
 def load_data_from_patients_folder(base_folder, resample_max_length=None):
     """
@@ -198,4 +199,40 @@ def create_meta_organs(patient_data, meta_organs=None, resample_max_length=None)
         gc.collect()
     
     return meta_data
+
+def save_patient_data(data_dict, folder_path, subfolder="reduced_metaorgans"):
+    """
+    Saves each patient's DataFrame as a CSV file in a subfolder within the specified folder.
+    """
+    save_folder = os.path.join(folder_path, subfolder)
+    os.makedirs(save_folder, exist_ok=True)  # Ensure the subfolder exists
+    
+    for patient_id, df in data_dict.items():
+        file_path = os.path.join(save_folder, f"{patient_id}.csv")
+        df.to_csv(file_path, index=True)  # Save row indices
+
+def load_from_csv_patient_data(folder_path, subfolder="reduced_metaorgans"):
+    """
+    Loads patient data from CSV files if they exist in the subfolder.
+    """
+    data_dict = {}
+    load_folder = os.path.join(folder_path, subfolder)
+    
+    if not os.path.exists(load_folder):
+        return data_dict
+    
+    for file_name in os.listdir(load_folder):
+        if file_name.endswith(".csv"):
+            patient_id = file_name[:-4]  # Remove .csv extension
+            file_path = os.path.join(load_folder, file_name)
+            df=pd.read_csv(file_path, index_col=0)  
+            df.columns = [int(col) if col.isdigit() else col for col in df.columns]
+
+            # Convert "SUV" row values from string to list of floats if it exists
+            if "SUV" in df.index:
+                df.loc["SUV"] = df.loc["SUV"].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
+            data_dict[patient_id] = df
+            
+    
+    return data_dict
 

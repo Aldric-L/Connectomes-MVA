@@ -10,157 +10,28 @@ from scipy import stats
 
 import random
 
-def resample_vectors(vectors):
-    """
-    Resamples longer vectors to match the length of the shortest vector,
-    preserving the approximate distribution.
+from utilsStats import resample_vectors
 
-    Args:
-        vectors: A list of NumPy arrays (vectors) of potentially different lengths.
+# def build_organ_dict(organ_SUV_values):
+#     """
+#     Constructs an organ dictionary with (mean, variance) for each organ based on SUV values.
 
-    Returns:
-        A list of resampled NumPy arrays, all with the length of the shortest vector.
-    """
+#     Parameters:
+#         patients_data (dict): Dictionary where keys are patient IDs and values are pandas DataFrames.
+#         patients_list (list): List of patient IDs to aggregate data from.
 
-    if not isinstance(vectors, (list, np.ndarray)) or len(vectors) == 0: 
-        return []
+#     Returns:
+#         dict: {organ_name: (mean_SUV, variance_SUV)}
+#     """
 
-    lengths = [len(v) for v in vectors]
-    min_length = min(lengths)
+#     organ_dict = {}
 
-    resampled_vectors = []
-    for vector in vectors:
-        if len(vector) == min_length:
-            resampled_vectors.append(vector)
-        else:
-            # Interpolate the vector
-            x_original = np.linspace(0, 1, len(vector))
-            x_resampled = np.linspace(0, 1, min_length)
-            f = interp1d(x_original, vector, kind='linear', fill_value="extrapolate") #use linear interpolation
-            resampled_vectors.append(f(x_resampled))
+#     for i, arr in enumerate(organ_SUV_values):
+#         mean = np.mean(arr)
+#         variance = np.var(arr)
+#         organ_dict[i] = (mean, variance)
 
-    return resampled_vectors
-
-def compute_pairwise_covariance(organs, mode="data"):
-    """
-    Compute the pairwise covariance matrix between organs
-
-    Parameters:
-        organs (dict): Dictionary where keys are organ names and values are (mean, variance) tuples.
-        mode (string): "data" or "parameters" : if data we compute the actual covariance, if parameters we compute the cov based on the log-transformed 
-    parameters of their log-normal distributions.
-
-    Returns:
-        np.ndarray: Pairwise covariance matrix between organs.
-        list: Ordered list of organ names corresponding to matrix indices.
-    """
-    if mode == "data":
-        if type(organs) != np.ndarray:
-            organ_names = list(organs.keys())
-            # Stack organ data into a matrix (rows = organs, columns = samples)
-            data_matrix = np.vstack([organs[name] for name in organ_names])
-        else:
-            organ_names = []
-            data_matrix = resample_vectors(organs)
-            
-        # Compute the covariance matrix (num_organs x num_organs)
-        covariance_matrix = np.cov(data_matrix)
-    else: 
-        organ_names = list(organs.keys())
-        # Convert organ dictionary to a NumPy array for easier computation
-        organ_vectors = np.array([organs[name] for name in organ_names])
-        
-        # Convert (mean, variance) to underlying normal parameters (log_mu, log_sigma_sq)
-        log_mu = np.log(organ_vectors[:, 0]**2 / np.sqrt(organ_vectors[:, 1] + organ_vectors[:, 0]**2))
-        log_sigma_sq = np.log(organ_vectors[:, 1] / organ_vectors[:, 0]**2 + 1)
-        
-        # Stack transformed parameters into a (num_organs, 2) matrix
-        log_params = np.vstack((log_mu, log_sigma_sq)).T  
-
-        # Compute the covariance matrix between organs (num_organs x num_organs)
-        covariance_matrix = np.cov(log_params, rowvar=False)  
-
-    return covariance_matrix, organ_names
-
-
-def plot_density(*vectors, titles=None):
-    """
-    Plots multiple density plots in a row as subplots.
-
-    Args:
-        *vectors: Variable number of lists or NumPy arrays representing the data.
-        titles: Optional list of titles for each density plot. If None, default titles are used.
-    """
-
-    num_vectors = len(vectors)
-
-    if num_vectors == 0:
-        print("No vectors provided.")
-        return
-
-    if titles is None:
-        titles = [f"Density Plot {i+1}" for i in range(num_vectors)]
-    elif len(titles) != num_vectors:
-        print("Number of titles does not match number of vectors.")
-        titles = [f"Density Plot {i+1}" for i in range(num_vectors)]
-
-    plt.figure(figsize=(10 * num_vectors, 5))
-
-    for i, vector in enumerate(vectors):
-        if not isinstance(vector, (list, np.ndarray)):
-            raise TypeError(f"Input vector {i+1} must be a list or numpy array.")
-
-        if isinstance(vector, list):
-            vector = np.array(vector)
-
-        plt.subplot(1, num_vectors, i + 1)
-        sns.kdeplot(vector, fill=True)
-        plt.title(titles[i])
-        plt.xlabel("Value")
-        plt.ylabel("Density")
-        plt.grid(True)
-
-    plt.tight_layout()
-    plt.show()
-  
-def plot_distribution_vector(vector_of_distributions, title="Distribution Vector"):
-    """
-    Plots a vector of distributions using overlapping density plots.
-
-    Args:
-      vector_of_distributions: A list of lists or numpy arrays, where each inner 
-                                list/array represents a distribution.
-      title: The title of the plot.
-    """
-    plt.figure(figsize=(10, 5))
-    for distribution in vector_of_distributions:
-        sns.kdeplot(distribution, fill=True)
-    plt.title(title)
-    plt.xlabel("Value")
-    plt.ylabel("Density")
-    plt.grid(True)
-    plt.show()
-
-def build_organ_dict(organ_SUV_values):
-    """
-    Constructs an organ dictionary with (mean, variance) for each organ based on SUV values.
-
-    Parameters:
-        patients_data (dict): Dictionary where keys are patient IDs and values are pandas DataFrames.
-        patients_list (list): List of patient IDs to aggregate data from.
-
-    Returns:
-        dict: {organ_name: (mean_SUV, variance_SUV)}
-    """
-
-    organ_dict = {}
-
-    for i, arr in enumerate(organ_SUV_values):
-        mean = np.mean(arr)
-        variance = np.var(arr)
-        organ_dict[i] = (mean, variance)
-
-    return organ_dict
+#     return organ_dict
 
 def normalize_matrix_no_diagonal(matrix):
     """
@@ -189,45 +60,31 @@ def normalize_matrix_no_diagonal(matrix):
     return normalized_matrix
 
 
-def print_adjacency_matrices(data_patient):
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))  # 1 row, 3 columns
-    im1 = axes[0].imshow(data_patient['bhattacharyya'], cmap='viridis', interpolation='nearest')
-    axes[0].set_title('Adjacency Matrix (bhattacharyya)')
-    axes[0].set_xlabel('Node')
-    axes[0].set_ylabel('Node')
-    fig.colorbar(im1, ax=axes[0])
+# def print_adjacency_matrices(data_patient):
+#     fig, axes = plt.subplots(1, 3, figsize=(15, 5))  # 1 row, 3 columns
+#     im1 = axes[0].imshow(data_patient['bhattacharyya'], cmap='viridis', interpolation='nearest')
+#     axes[0].set_title('Adjacency Matrix (bhattacharyya)')
+#     axes[0].set_xlabel('Node')
+#     axes[0].set_ylabel('Node')
+#     fig.colorbar(im1, ax=axes[0])
 
-    # Plot the second matrix
-    im2 = axes[1].imshow(data_patient['kl_divergence'], cmap='viridis', interpolation='nearest')
-    axes[1].set_title('Adjacency Matrix (kl_divergence)')
-    axes[1].set_xlabel('Node')
-    axes[1].set_ylabel('Node')
-    fig.colorbar(im2, ax=axes[1])
+#     # Plot the second matrix
+#     im2 = axes[1].imshow(data_patient['kl_divergence'], cmap='viridis', interpolation='nearest')
+#     axes[1].set_title('Adjacency Matrix (kl_divergence)')
+#     axes[1].set_xlabel('Node')
+#     axes[1].set_ylabel('Node')
+#     fig.colorbar(im2, ax=axes[1])
 
-    # Plot the third matrix
-    im3 = axes[2].imshow(data_patient['euclidean-on-log'], cmap='viridis', interpolation='nearest')
-    axes[2].set_title('Adjacency Matrix (euclidean-on-log)')
-    axes[2].set_xlabel('Node')
-    axes[2].set_ylabel('Node')
-    fig.colorbar(im3, ax=axes[2])
+#     # Plot the third matrix
+#     im3 = axes[2].imshow(data_patient['euclidean-on-log'], cmap='viridis', interpolation='nearest')
+#     axes[2].set_title('Adjacency Matrix (euclidean-on-log)')
+#     axes[2].set_xlabel('Node')
+#     axes[2].set_ylabel('Node')
+#     fig.colorbar(im3, ax=axes[2])
 
-    plt.tight_layout() #Prevents overlapping titles/labels.
-    plt.show()
+#     plt.tight_layout() #Prevents overlapping titles/labels.
+#     plt.show()
 
-
-def do_t_test(distribA, distribB):
-    t_stat, p_value = ttest_ind(distribA, distribB, equal_var=False)  # Welch's t-test
-
-    print(f"T-statistic: {t_stat}")
-    print(f"P-value: {p_value}")
-
-    # Interpret the results
-    alpha = 0.05  # Common significance level
-    if p_value < alpha:
-        print("There is a statistically significant difference between distribA and distribB (p < 0.05).")
-    else:
-        print("No statistically significant difference found (p >= 0.05).")
-    return t_stat, p_value
 
 def upper_triangle_to_vector(matrix):
     """

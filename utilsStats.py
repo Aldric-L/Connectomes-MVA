@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import scipy.stats as stats
+from scipy.interpolate import interp1d
+from scipy.stats import ttest_ind
 import networkx as nx
 
 def pearson_correlation(x, y):
@@ -312,3 +314,48 @@ def is_connected(adj_matrix):
     
     # If all nodes are visited, the graph is connected
     return all(visited)
+
+def resample_vectors(vectors):
+    """
+    Resamples longer vectors to match the length of the shortest vector,
+    preserving the approximate distribution.
+
+    Args:
+        vectors: A list of NumPy arrays (vectors) of potentially different lengths.
+
+    Returns:
+        A list of resampled NumPy arrays, all with the length of the shortest vector.
+    """
+
+    if not isinstance(vectors, (list, np.ndarray)) or len(vectors) == 0: 
+        return []
+
+    lengths = [len(v) for v in vectors]
+    min_length = min(lengths)
+
+    resampled_vectors = []
+    for vector in vectors:
+        if len(vector) == min_length:
+            resampled_vectors.append(vector)
+        else:
+            # Interpolate the vector
+            x_original = np.linspace(0, 1, len(vector))
+            x_resampled = np.linspace(0, 1, min_length)
+            f = interp1d(x_original, vector, kind='linear', fill_value="extrapolate") #use linear interpolation
+            resampled_vectors.append(f(x_resampled))
+
+    return resampled_vectors
+
+def do_t_test(distribA, distribB):
+    t_stat, p_value = ttest_ind(distribA, distribB, equal_var=False)  # Welch's t-test
+
+    print(f"T-statistic: {t_stat}, P-value: {p_value}")
+    print(f"Mean distribA : {np.mean(distribA):.3} | Mean distribB : {np.mean(distribB):.3}")
+
+    # Interpret the results
+    alpha = 0.05  # Common significance level
+    if p_value < alpha:
+        print("There is a statistically significant difference between distribA and distribB (p < 0.05).")
+    else:
+        print("No statistically significant difference found (p >= 0.05).")
+    return t_stat, p_value
